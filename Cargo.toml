@@ -1,0 +1,13 @@
+[workspace]
+members = ["frontend", "backend", "shared"]
+resolver = "2"
+
+[workspace.dependencies]
+allfeat-faucet-shared = { path = "./shared" }
+dotenvy = "0.15.7"
+
+[profile.release]
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"
