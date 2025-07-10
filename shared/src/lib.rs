@@ -27,7 +27,7 @@ impl Display for TransferStatus {
         let str: &str = match self {
             TransferStatus::ApiInit => "The backend is preparing the transfer",
             TransferStatus::TxSending => "Transaction is being sent to the network",
-            TransferStatus::TxBroadcasted => "Transaction has been propaged to the network",
+            TransferStatus::TxBroadcasted => "Transaction has been propagated to the network",
             TransferStatus::TxValidated => {
                 "Transaction has been validated and will be included in the next block"
             }
