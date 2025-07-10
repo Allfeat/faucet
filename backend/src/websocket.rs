@@ -12,12 +12,12 @@ use axum::{
 };
 use tokio::sync::mpsc;
 
-use crate::{ClientId, Clients};
+use crate::{ClientId, Clients, FaucetState};
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    State(clients): State<Clients>,
+    State(state): State<FaucetState>,
     Query(params): Query<HashMap<String, String>>,
 ) -> impl axum::response::IntoResponse {
     tracing::info!("🔌 WebSocket connection from {}", addr);
@@ -26,7 +26,7 @@ pub async fn ws_handler(
         tracing::warn!("Missing client_id in query params");
         return Err(StatusCode::BAD_REQUEST);
     };
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, client_id, clients)))
+    Ok(ws.on_upgrade(move |socket| handle_socket(socket, client_id, state.ws_clients)))
 }
 
 async fn handle_socket(socket: WebSocket, client_id: ClientId, clients: Clients) {

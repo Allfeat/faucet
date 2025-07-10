@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use allfeat_faucet_shared::TransferStatus;
 use subxt::tx::TxStatus;
 use subxt::utils::AccountId32;
@@ -7,7 +9,7 @@ use subxt_signer::sr25519::{dev, Keypair};
 use tracing::{debug, error, info};
 
 use crate::websocket::notify_client;
-use crate::Clients;
+use crate::FaucetState;
 
 #[subxt::subxt(runtime_metadata_path = "melodie_metadata.scale")]
 pub mod melodie {}
@@ -41,7 +43,7 @@ fn get_sender_account() -> Keypair {
 
 pub async fn transfer_to(
     to: AccountId32,
-    clients: Clients,
+    state: FaucetState,
     client_id: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let transfer_amount = get_faucet_amount();
@@ -51,15 +53,15 @@ pub async fn transfer_to(
         to.to_string()
     );
 
-    notify_client(&clients, &client_id, &TransferStatus::ApiInit).await;
+    notify_client(&state.ws_clients, &client_id, &TransferStatus::ApiInit).await;
 
     let api = OnlineClient::<SubstrateConfig>::from_url(get_node_url()).await?;
 
-    notify_client(&clients, &client_id, &TransferStatus::TxSending).await;
+    notify_client(&state.ws_clients, &client_id, &TransferStatus::TxSending).await;
 
     let tx = melodie::tx()
         .balances()
-        .transfer_allow_death(to.into(), transfer_amount);
+        .transfer_allow_death(to.clone().into(), transfer_amount);
 
     let from = get_sender_account();
     let mut tx_progress = api
@@ -72,19 +74,30 @@ pub async fn transfer_to(
             Ok(tx_status) => match tx_status {
                 TxStatus::Validated => {
                     debug!("Transaction has been validated.");
-                    notify_client(&clients, &client_id, &TransferStatus::TxValidated).await;
+                    notify_client(&state.ws_clients, &client_id, &TransferStatus::TxValidated)
+                        .await;
                 }
                 TxStatus::Broadcasted => {
                     debug!("Transaction has been broadcasted.");
-                    notify_client(&clients, &client_id, &TransferStatus::TxBroadcasted).await;
+                    notify_client(
+                        &state.ws_clients,
+                        &client_id,
+                        &TransferStatus::TxBroadcasted,
+                    )
+                    .await;
                 }
                 TxStatus::InBestBlock(info) => {
                     debug!(
                         "✅ Transaction included in block. Hash: {}",
                         info.extrinsic_hash()
                     );
+                    state
+                        .last_claims
+                        .write()
+                        .await
+                        .insert(to.to_string(), SystemTime::now());
                     notify_client(
-                        &clients,
+                        &state.ws_clients,
                         &client_id,
                         &TransferStatus::TxInBlock {
                             tx_hash: info.extrinsic_hash().to_string(),
@@ -98,7 +111,7 @@ pub async fn transfer_to(
                 | TxStatus::Invalid { message } => {
                     error!("❌ Transaction failed: {}", message);
                     notify_client(
-                        &clients,
+                        &state.ws_clients,
                         &client_id,
                         &TransferStatus::TxError {
                             error: message.clone(),
@@ -126,8 +139,7 @@ pub async fn transfer_to(
 mod tests {
     use super::*;
     use axum::extract::ws::Message;
-    use std::{collections::HashMap, str::FromStr, sync::Arc};
-    use tokio::sync::RwLock;
+    use std::str::FromStr;
     use tracing_test::traced_test;
 
     #[tokio::test]
@@ -140,11 +152,11 @@ mod tests {
         let client_id = "test_client".to_string();
 
         // Mock client
-        let clients: Clients = Arc::new(RwLock::new(HashMap::new()));
+        let state = FaucetState::default();
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Message>();
-        clients.write().await.insert(client_id.clone(), tx);
+        state.ws_clients.write().await.insert(client_id.clone(), tx);
 
-        transfer_to(bob, clients, client_id).await.unwrap();
+        transfer_to(bob, state, client_id).await.unwrap();
 
         let received: Vec<_> = std::iter::from_fn(|| rx.try_recv().ok()).collect();
         assert!(!received.is_empty());

@@ -1,5 +1,5 @@
 use captcha::cf_sitekey;
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
 use websocket::ws_handler;
 
 use axum::{
@@ -16,9 +16,18 @@ mod captcha;
 mod chain;
 mod websocket;
 
+#[derive(Debug, Default, Clone)]
+pub struct FaucetState {
+    pub ws_clients: Clients,
+    pub last_claims: LastClaims,
+}
+
 /// Mapping of client ID and the ws sender.
 pub type Clients = Arc<RwLock<HashMap<ClientId, UnboundedSender<Message>>>>;
 pub type ClientId = String;
+
+/// Mapping of an Address to a time to enforce the cooldown between claims per address.
+pub type LastClaims = Arc<RwLock<HashMap<String, SystemTime>>>;
 
 #[tokio::main]
 async fn main() {
@@ -29,14 +38,14 @@ async fn main() {
         .with_target(false)
         .init();
 
-    let clients: Clients = Arc::new(RwLock::new(HashMap::new()));
+    let state = FaucetState::default();
 
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .route("/api/transfer", post(api::handle_transfer))
         .route("/api/cf_sitekey", get(cf_sitekey))
         .fallback_service(ServeDir::new("./frontend/dist"))
-        .with_state(clients);
+        .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
