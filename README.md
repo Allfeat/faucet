@@ -34,12 +34,10 @@ Edit `.env`:
 BACKEND_PORT=3000
 FAUCET_AMOUNT=10
 SENDER_SEED=
-ENDPOINT_NODE_URL=
+NODE_ENDPOINT_URL=
 CF_SECRET=
 CF_SITEKEY=
 ```
-
-> Optionally, the backend will also read `NODE_ENDPOINT_URL` if it's set.
 
 ---
 
