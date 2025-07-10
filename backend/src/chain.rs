@@ -23,7 +23,7 @@ fn get_node_url() -> String {
 
 /// Get the sender account pair from env variable or use the alice account.
 fn get_sender_account() -> Keypair {
-    let seed = std::env::var("SENDER_SEED").unwrap_or_else(|_| "ws://127.0.0.1:9944".to_string());
+    let seed = std::env::var("SENDER_SEED").unwrap_or_default();
 
     Mnemonic::parse(seed)
         .ok()
