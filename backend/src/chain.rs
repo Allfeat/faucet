@@ -12,7 +12,15 @@ use crate::Clients;
 #[subxt::subxt(runtime_metadata_path = "melodie_metadata.scale")]
 pub mod melodie {}
 
-const TRANSFER_AMOUNT: u128 = 10_000_000_000_000;
+const DEFAULT_FAUCET_AMOUNT: u128 = 10_000_000_000_000;
+
+fn get_faucet_amount() -> u128 {
+    std::env::var("FAUCET_AMOUNT")
+        .ok()
+        .and_then(|v| v.parse::<u128>().ok())
+        .map(|v| v * 10u128.pow(12))
+        .unwrap_or(DEFAULT_FAUCET_AMOUNT)
+}
 
 fn get_node_url() -> String {
     let endpoint =
@@ -36,9 +44,10 @@ pub async fn transfer_to(
     clients: Clients,
     client_id: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let transfer_amount = get_faucet_amount();
     info!(
         "Executing transfer of {} to {}",
-        TRANSFER_AMOUNT / 10u128.pow(12),
+        transfer_amount / 10u128.pow(12),
         to.to_string()
     );
 
@@ -50,7 +59,7 @@ pub async fn transfer_to(
 
     let tx = melodie::tx()
         .balances()
-        .transfer_allow_death(to.into(), TRANSFER_AMOUNT);
+        .transfer_allow_death(to.into(), transfer_amount);
 
     let from = get_sender_account();
     let mut tx_progress = api

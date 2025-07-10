@@ -11,7 +11,7 @@ pub fn ModalTx(show: RwSignal<bool>) -> impl IntoView {
             <div class="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40">
                 <div class="bg-white/90 backdrop-blur-md border border-gray-200 rounded-2xl shadow-2xl p-8 w-full max-w-md flex flex-col items-center gap-6 transition-all">
                     <h2 class="text-2xl font-bold text-gray-800 text-center">Transaction Status</h2>
-                    <TransferState status=RwSignal::new(ws_status.get()).read_only() />
+                    <TransferState status=ws_status.read_only() />
                 </div>
             </div>
         </Show>
