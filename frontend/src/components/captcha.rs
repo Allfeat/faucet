@@ -57,6 +57,7 @@ pub fn Captcha(setter: WriteSignal<String>) -> impl IntoView {
             class="cf-turnstile mx-auto scale-90 flex justify-center"
             data-sitekey=x
             data-callback="cf_callback"
+            data-theme="light"
         ></div>
         }
         .into_any(),

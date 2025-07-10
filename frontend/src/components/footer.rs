@@ -8,7 +8,7 @@ pub fn Footer() -> impl IntoView {
                 <span>"Allfeat labs. © 2025"</span>
                 <span>"|"</span>
                 <a
-                    href="https://github.com/allfeat/allfeat-faucet"
+                    href="https://github.com/allfeat/faucet"
                     target="_blank"
                     class="hover:text-teal-600 transition"
                 >
