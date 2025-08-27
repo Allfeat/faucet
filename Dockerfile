@@ -2,16 +2,6 @@
 # Stage 1: Build the frontend with Rust and Trunk
 FROM rust:1.89-slim AS frontend-builder
 
-# Install Node.js (needed for Tailwind CSS)
-RUN apt-get update && apt-get install -y \
-    curl \
-    build-essential \
-    pkg-config \
-    libssl-dev \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
 # Add wasm target and install trunk
 RUN rustup target add wasm32-unknown-unknown
 RUN cargo install trunk
@@ -26,7 +16,6 @@ COPY backend/ ./backend/
 
 # Install frontend dependencies and build
 WORKDIR /app/frontend
-RUN npm install
 RUN trunk build --release
 
 # Stage 2: Build the backend
