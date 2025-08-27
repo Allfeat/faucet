@@ -7,7 +7,6 @@ use allfeat_faucet_shared::TransferRequest;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use subxt::utils::AccountId32;
 use tokio::spawn;
-use tracing::info;
 
 use crate::{captcha::verify_captcha, chain::transfer_to, FaucetState, LastClaims};
 

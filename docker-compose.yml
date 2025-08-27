@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  allfeat-faucet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - BACKEND_PORT=3000
+      - FAUCET_AMOUNT=${FAUCET_AMOUNT:-10}
+      - SENDER_SEED=${SENDER_SEED}
+      - NODE_ENDPOINT_URL=${NODE_ENDPOINT_URL:-ws://127.0.0.1:9944}
+      - CF_SECRET=${CF_SECRET}
+      - CF_SITEKEY=${CF_SITEKEY}
+      - RUST_LOG=${RUST_LOG:-info}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/cf_sitekey"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      # Optional: Mount config if needed
+      - ./backend/.env:/app/.env:ro
