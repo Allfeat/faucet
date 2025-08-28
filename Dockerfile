@@ -1,67 +1,69 @@
-# Multi-stage build for Allfeat Faucet
-# Stage 1: Build the frontend with Rust and Trunk
-FROM rust:1.89-slim AS frontend-builder
+# Highly optimized multi-stage build for Allfeat Faucet
+FROM rust:1.89-slim AS builder
 
-# Add wasm target and install trunk
-RUN rustup target add wasm32-unknown-unknown
-RUN cargo install trunk
-
-WORKDIR /app
-
-# Copy ALL workspace files first
-COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY shared/ ./shared/
-COPY frontend/ ./frontend/
-COPY backend/ ./backend/
-
-# Install frontend dependencies and build
-WORKDIR /app/frontend
-RUN trunk build --release
-
-# Stage 2: Build the backend
-FROM rust:1.89-slim AS backend-builder
-
+# Install system dependencies in one layer
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    build-essential
+
+# Install Rust toolchain in separate layer for caching
+RUN rustup target add wasm32-unknown-unknown
+RUN cargo install cargo-binstall
+
+RUN cargo binstall trunk
 
 WORKDIR /app
 
-# Copy ALL workspace files
+# Copy manifests first (best cache layer)
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY shared/ ./shared/
-COPY backend/ ./backend/
-COPY frontend/ ./frontend/
+COPY shared/Cargo.toml ./shared/
+COPY frontend/Cargo.toml ./frontend/
+COPY backend/Cargo.toml ./backend/
 
-# Copy the built frontend from previous stage
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+# Now copy actual source code
+WORKDIR /app
+COPY shared/src/ ./shared/src/
+COPY frontend/src/ ./frontend/src/
+COPY frontend/index.html ./frontend/
+COPY frontend/Trunk.toml ./frontend/
+COPY frontend/styles.css ./frontend/
+COPY frontend/tailwind.config.js ./frontend/
+COPY frontend/public/ ./frontend/public/
+COPY backend/src/ ./backend/src/
+COPY backend/melodie_metadata.scale ./backend/
 
-# Build backend in release mode
+# Build frontend
+WORKDIR /app/frontend
+RUN trunk build --release
+
+# Build backend
+WORKDIR /app
 RUN cargo build --release --manifest-path backend/Cargo.toml
 
-# Stage 3: Runtime image
+# Runtime stage
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the built binary and frontend assets
-COPY --from=backend-builder /app/target/release/allfeat-faucet-backend ./allfeat-faucet-backend
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-COPY --from=backend-builder /app/backend/melodie_metadata.scale ./melodie_metadata.scale
+# Copy artifacts
+COPY --from=builder /app/target/release/allfeat-faucet-backend ./allfeat-faucet-backend
+COPY --from=builder /app/frontend/dist ./frontend/dist
+COPY --from=builder /app/backend/melodie_metadata.scale ./melodie_metadata.scale
 
-# Create a non-root user
-RUN useradd -r -s /bin/false faucet
-RUN chown -R faucet:faucet /app
+# Security: non-root user
+RUN useradd -r -s /bin/false faucet \
+    && chown -R faucet:faucet /app
+
 USER faucet
 
-# Expose the application port
 EXPOSE 3000
 
-# Run the backend server
 CMD ["./allfeat-faucet-backend"]
