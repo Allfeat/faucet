@@ -46,6 +46,7 @@
               nodePackages.pnpm
               just
               leptosfmt
+              trunk
             ]
             ++ lib.optionals stdenv.hostPlatform.isLinux [ rust-jemalloc-sys-unprefixed ]
             ++ lib.optionals stdenv.hostPlatform.isDarwin [
